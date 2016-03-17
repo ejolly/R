@@ -2,7 +2,7 @@
 title: "How Contrasts Work in R"
 author: "Eshin Jolly (eshin.jolly.gr@dartmouth.edu)"
 date: "Januaray 7, 2016"
-output: html_document
+output: github_document
 ---
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 library(doBy)
