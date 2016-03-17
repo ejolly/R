@@ -2,7 +2,7 @@
 title: "How different tests look as design matrices"
 author: "Eshin Jolly (eshin.jolly.gr@dartmouth.edu)"
 date: "January 13, 2016"
-output: html_document
+output: github_document
 ---
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 library(doBy)
