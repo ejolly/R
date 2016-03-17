@@ -1,0 +1,132 @@
+---
+title: "Visualizing 10,000 Tweets for #InternationalWomensDay"
+output: html_document
+---
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+library('wordcloud')
+library('corrplot')
+library('ggplot2')
+library('wordcloud')
+library('tm')
+
+setwd(file.path('/Users/Esh/Documents/R','forFun','Twitter'))
+load('sentimentDF.Rdata')
+load('tweetCounts.Rdata')
+load('tweetsCorr.Rdata')
+corMat2 <- corMat
+load('tweetsCorr1percen.Rdata')
+load('documentTermMat.Rdata')
+
+#Colors
+cols <- colorRampPalette(c('royalblue4', 'firebrick1', "yellow"))
+```  
+\
+\
+
+In honor of International Women's Day and because I've always wanted to play with Twitter data, I pulled 10,000 tweets during the day that used the hashtag #InternationalWomensDay. I cleaned things up a bit using pretty standard text mining analytics to generate the following stuff. 
+
+###What are people saying?  
+
+####ALL OF THE WORDS
+
+Here's a simple word cloud reflecting words that appear most often throughout these tweets. In addition to some cleaning, the hashtag itself has been filtered out so everything pictured here comes from the body of each tweet.
+
+```{r, echo=FALSE,dev='jpeg',fig.width=10,fig.height=8,warning=FALSE,message=FALSE}
+wordcloud(countsDF$word, countsDF$count, min.freq=10, scale=c(7,.5),colors =cols(20),
+          random.color= F, random.order = F, rot.per=.3, max.words = 1000)
+```  
+
+This is a handy big picture view of the kinds of things people are mentioning. It's also indicative of how messy text data can be (e.g. abbreviations, word stems, spelling issues). 
+\
+
+
+####What do people tweet when they tweet about Women?  
+
+Here's a look at words that are appear most often with the word "women" across all tweets. The metric is derived from how often each word appears across all tweets relative to "women," in addition to how often each words appears along with "women" within a single tweet.   
+
+```{r,echo=FALSE,dev='jpeg',fig.width=9,fig.height=7}
+womenAssoc <- findAssocs(tdm,'women',corlimit=.2)
+womenAssoc <- as.data.frame(womenAssoc)
+womenAssoc$word <- rownames(womenAssoc)
+
+ggplot(womenAssoc,aes(reorder(word,women), women,fill=word)) + geom_histogram(stat='identity') +
+  theme_bw() + 
+  labs(x ='',y='Correlation strength') +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1,size=11),
+        axis.ticks.x=element_blank(), axis.title.y = element_text(size=13,vjust=1.5)) + 
+  guides(fill=F) + 
+  coord_cartesian(ylim=c(.18,.31)) + 
+  ggtitle('Words that most often co-occur with "Women"')
+
+
+```  
+
+Nice to see that **badass** and **science** are among the most often mentioned terms. There have definitely been some [badass female scientists](http://discovermagazine.com/2002/nov/feat50).
+\
+\
+
+
+###Words dancing with words   
+
+Here's a look at relationships among words that appear very often: in at least 2% of all 10,000 tweets. While 2% doesn't sound like a lot, there are only two words that appear in more than 10% of all tweets (it should be obvious what they are from the word cloud above). Meaning that the majority of words are shared by only a handful of tweets here and there. So this is really a range of 2-10%, which provides a reasonable distribution of words to work with.  
+
+This matrix visualizes how related these commonly occuring words are. Brighter non-white colors indicate pairs of words (from the corresponding row and column) that tend to vary together in how frequently they appear across tweets. The outlined squares are particular (hierarchically determined) *clusters* of words that show similar patterns of frequency across tweets. Along the main diagonal are simply the perfect correlations of words with themselves. 
+
+```{r,echo=FALSE,dev='jpeg',fig.width=8,fig.height=7,message=FALSE,warning=FALSE}
+corrplot((corMat2), is.corr = F, method= "circle", order = 'hclust',hclust.method='ward', 
+         col= cols(30), cl.lim = c(0,1),
+         tl.cex = .75, tl.col = 'black', tl.srt = 45, tl.offset= .5,
+         cl.ratio=.2, cl.cex = .6, cl.offset=20,
+         outline = F, addrect=6, rect.col='royalblue4',rect.lwd = 2)
+```  
+\
+
+
+While one or two of the clusters appear to reflect a common theme, (e.g. the third being about celebrating International Women's Day), the others are pretty open to interpretation. In particular, the cluster on the bottom right is more or less a catch-all for word pairs that weakly fit in elsewhere. 
+\
+\
+
+
+###All the feels  
+And of course you can't look at Twitter data without an obligatory sentiment analysis of some kind. This one is about as basic as it gets, and simply visualizes the distribution of positive and negative sentiments across all these tweets. One way to carry this out (and what's done here) is to figure out the proportion of words within tweets that are found in positive and negative word dictionaries (i.e. [sentiment lexicon](http://www.cs.uic.edu/~liub/FBS/sentiment-analysis.html#lexicon)). Using these proportions, tweets can be scored and scores can be plotted like below.  
+
+While the distribution looks somewhat neutral overall, tweets actually express a small, but meaningful positive sentiment on *average* as indicated by the dashed golden line.
+
+```{r,echo=FALSE,dev='jpeg',fig.width=8,fig.height=6}
+
+sentDFs <- data.frame(percent = sapply(sort(unique(sentDF$score)),function(x){sum(sentDF$score==x)/nrow(sentDF)}), score= sort(unique(sentDF$score)))
+sentDFs$score <- as.numeric(levels(sentDFs$score))[sentDFs$score]
+sentDFs <- rbind(c(0,-6),c(0,-5),sentDFs)
+sentDFs$score <- as.factor(sentDFs$score)
+mscore <- mean(as.numeric(levels(sentDF$score)[sentDF$score]))
+
+ggplot(sentDFs,aes(x = score, y = percent, fill=score)) + geom_bar(stat='identity') +
+  theme_bw() + 
+  labs(x='',y='Proportion of 10,000 Tweets') +
+  guides(fill=F) + 
+  theme(axis.text.x = element_text(size=12),
+                         axis.ticks.x=element_blank(), 
+                         axis.title.y = element_text(size=12, vjust=1.5)) +
+  geom_vline(xintercept=7+mscore,size = 1.25,linetype='longdash',colour='goldenrod') + 
+  ggtitle('Emotional Sentiment Among Tweets') +
+  coord_cartesian(ylim=c(0,.5)) + 
+  scale_x_discrete(breaks = -6:6,labels=c('Very Negative',
+                                          '','','','','',
+                                          'Neutral',
+                                          '','', '', '', '',
+                                          'Very Positive')) 
+
+```  
+\
+\
+\
+*Caveats:*  
+This is a pretty small sample as far as tweets go, and perhaps more importantly it's *static*. In other words, it only came from a single time-range (roughly at the end of the day) and doesn't reflect trends or changes over the entire day. Constantly querying Twitter's API is a quick way to get rate-limited, but fortunately Twitter has a [streaming API](https://dev.twitter.com/streaming/overview) that's setup (and easy to use) for exactly that purpose.  
+
+
+*Eshin Jolly*  
+*eshin.jolly.GR[at]dartmouth.edu*  
+*github.com/ejolly/R/Twitter_analysis_final.R*
+
+
